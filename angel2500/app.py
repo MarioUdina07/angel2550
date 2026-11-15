@@ -4,6 +4,7 @@ import os
 from flask import Flask, jsonify, request
 
 from .assistant import answer_question
+from .agent import run_task, get_task
 
 
 def create_app():
@@ -42,5 +43,36 @@ def create_app():
         except RuntimeError:
             app.logger.exception("Assistant request failed")
             return jsonify(error="Assistant unavailable"), 503
+
+    @app.post("/api/tasks")
+    def tasks():
+        token = os.getenv("ANGEL_API_TOKEN", "")
+        if not token:
+            return jsonify(error="Server not configured"), 503
+        if not hmac.compare_digest(request.headers.get("Authorization", ""), "Bearer " + token):
+            return jsonify(error="Unauthorized"), 401
+        payload = request.get_json(silent=True)
+        goal = payload.get("goal") if isinstance(payload, dict) else None
+        if not isinstance(goal, str) or not 1 <= len(goal.strip()) <= 4000:
+            return jsonify(error="Goal length must be 1..4000"), 400
+        if not os.getenv("OPENAI_API_KEY"):
+            return jsonify(error="Assistant not configured"), 503
+        try:
+            return jsonify(run_task(goal.strip()))
+        except Exception:
+            app.logger.exception("Task execution failed")
+            return jsonify(error="Task execution unavailable"), 503
+
+    @app.get("/api/tasks/<task_id>")
+    def task_status(task_id):
+        token = os.getenv("ANGEL_API_TOKEN", "")
+        if not token:
+            return jsonify(error="Server not configured"), 503
+        if not hmac.compare_digest(request.headers.get("Authorization", ""), "Bearer " + token):
+            return jsonify(error="Unauthorized"), 401
+        if len(task_id) > 64:
+            return jsonify(error="Not found"), 404
+        result = get_task(task_id)
+        return (jsonify(result), 200) if result else (jsonify(error="Not found"), 404)
 
     return app
