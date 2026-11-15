@@ -29,3 +29,9 @@ GET /health is unauthenticated. POST /api/chat requires `Authorization: Bearer <
 ## Scope
 
 No exchange SDKs, no trading, no wallet operations, no Telegram execution, no shell or filesystem command execution, no autonomous self-training. This is a safe starting point, **not a production-ready trading bot**. Tests mock OpenAI and make no external trades or API requests.
+
+## Agent tasks and connectors
+
+The v5 task API accepts a goal, runs up to five planning/tool iterations, and stores the outcome in SQLite. Only explicitly configured read-only HTTPS connectors are callable. See [docs/CONNECTORS.md](docs/CONNECTORS.md) for the setup and permissions. It cannot automatically access ChatGPT plugins or act continuously in the background.
+
+**Before deploying:** rotate exposed credentials, add a proper secrets manager, outbound egress controls, authentication/rate limiting at the reverse proxy, and review CI results. Do not publish directly to the internet in its current state.
